@@ -2,8 +2,7 @@ import struct
 
 class ICMPPacket():
 
-    def __init__(self, source_address: str, destination_address: str):
-        self.source_address = source_address
+    def __init__(self, destination_address: str):
         self.destination_address = destination_address
         self.type = 8
         self.code = 0

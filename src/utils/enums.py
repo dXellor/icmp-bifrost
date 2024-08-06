@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 class ExitCodes(IntEnum):
     SUCCESS = 0
@@ -9,3 +9,7 @@ class ExitCodes(IntEnum):
 class Marks(IntEnum):
     SENDING = 7130
     RECEIVING = 7131
+
+class Modes(Enum):
+    CLIENT = 1,
+    SERVER = 2
