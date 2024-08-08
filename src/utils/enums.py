@@ -7,10 +7,10 @@ class ExitCodes(IntEnum):
     CANT_OPEN_SOCKET = 3
 
 class Marks(IntEnum):
-    CLIENT_SENDING = 7130
-    CLIENT_RECEIVING = 7131
-    SERVER_SENDING = 7132
-    SERVER_RECEIVING = 7133
+    TO_SERVER = 7130
+    FROM_SERVER = 7131
+    FROM_CLIENT = 7132
+    TO_CLIENT = 7133
 
 class Modes(Enum):
     CLIENT = 1,

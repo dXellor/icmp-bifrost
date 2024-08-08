@@ -5,18 +5,17 @@ import sys
 
 from .icmp_packet import ICMPPacket
 from utils.enums import Modes, Marks, ExitCodes
-from utils.networks import get_source_ip_address_in_bytes
+from utils.networks import convert_ip_address_to_bytes
 
 class TunnelDriver:
 
     def __init__(self, destination: str, mode: Modes) -> None:
         self.mode = mode
         self.icmp_socket = None
-        self.socket = None
         self.destination = destination
+        self.source = socket.gethostbyname( socket.gethostname() )
         
         self.open_icmp_socket()
-        self.open_socket()
 
     def open_icmp_socket(self) -> None:
         try:
@@ -25,25 +24,19 @@ class TunnelDriver:
             print(f"Error while initializing ICMP socket: {e}")
             sys.exit(ExitCodes.CANT_OPEN_SOCKET)
 
-    def open_socket(self) -> None:
-        try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        except socket.error as e:
-            print(f"Error while initializing ICMP socket: {e}")
-            sys.exit(ExitCodes.CANT_OPEN_SOCKET)
-
     def setup_iptables_rules(self) -> None:
-        setup_script = "./src/scripts/setup_iptables_client.sh" if self.mode == Modes.CLIENT else "./src/scripts/setup_iptables_server.sh"
+        if self.mode == Modes.CLIENT:
+            script_exit_code = subprocess.call( ['bash', './src/scripts/setup_iptables_client.sh', self.source, self.destination] )
+        else:
+            script_exit_code = subprocess.call( ['bash', './src/scripts/setup_iptables_server.sh', self.destination] )
 
-        script_exit_code = subprocess.call( ['bash', setup_script, self.destination] )
         if script_exit_code != 0:
             print( "Unable to setup iptable rules" )
             self.clear_iptables_rules()
             exit( ExitCodes.IPTABLES_SETUP_ERROR )
 
     def clear_iptables_rules(self) -> None:
-        cleanup_script = "./src/scripts/clear_iptables.sh"
-        subprocess.call( ['bash', cleanup_script] )
+        subprocess.call( ['bash', './src/scripts/clear_iptables.sh'] )
 
     def run(self):
         self.setup_iptables_rules()
@@ -60,31 +53,34 @@ class TunnelDriver:
 
     def handle_queue(self, packet: Packet) -> None:
 
-        print( packet )
-
-        if packet.get_mark() == Marks.CLIENT_SENDING:
-            print('client: sending')
-            self.client_wrap_icmp_and_send( packet )
+        print( f"packet: {packet}" )
+ 
+        if packet.get_mark() == Marks.TO_SERVER or packet.get_mark() == Marks.TO_CLIENT:
+            self.wrap_icmp_and_send( packet )
             return
 
-        if packet.get_mark() == Marks.SERVER_RECEIVING:
-            print('server: receiving')
-            self.server_unwrap_icmp_and_recieve( packet )
+        if packet.get_mark() == Marks.FROM_CLIENT or packet.get_mark() == Marks.FROM_SERVER:
+            self.unwrap_icmp_and_recieve( packet )
             return
 
         packet.accept()
 
-    def client_wrap_icmp_and_send(self, packet: Packet) -> None:
+    def wrap_icmp_and_send(self, packet: Packet) -> None:
         icmp_packet = ICMPPacket( self.destination )
         icmp_packet.payload = packet.get_payload()
+
+        if packet.get_mark() == Marks.TO_CLIENT:
+            icmp_packet.payload[16:20] = convert_ip_address_to_bytes( self.destination )
 
         self.icmp_socket.sendto( icmp_packet.get_raw(), ( self.destination, 1001 ))
         packet.drop()
 
-    def server_unwrap_icmp_and_recieve(self, packet: Packet) -> None:
+    def unwrap_icmp_and_recieve(self, packet: Packet) -> None:
         raw_icmp = packet.get_payload()
         secret_payload = bytearray( raw_icmp[8:] )
 
-        secret_payload[12:16] = get_source_ip_address_in_bytes()
+        if packet.get_mark() == Marks.FROM_CLIENT:
+            secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
+        
         packet.set_payload( secret_payload )
         packet.repeat()

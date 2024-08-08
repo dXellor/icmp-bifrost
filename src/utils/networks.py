@@ -1,5 +1,4 @@
 import socket 
 
-def get_source_ip_address_in_bytes() -> bytes:
-    ip = socket.gethostbyname( socket.gethostname() )
+def convert_ip_address_to_bytes(ip: str) -> bytes:
     return socket.inet_aton( ip )
