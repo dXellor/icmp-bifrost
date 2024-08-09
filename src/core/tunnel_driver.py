@@ -5,7 +5,7 @@ import sys
 
 from .icmp_packet import ICMPPacket
 from utils.enums import Modes, Marks, ExitCodes
-from utils.networks import convert_ip_address_to_bytes
+from utils.network import convert_ip_address_to_bytes
 
 class TunnelDriver:
 
@@ -52,10 +52,9 @@ class TunnelDriver:
         nfqueue.unbind()
 
     def handle_queue(self, packet: Packet) -> None:
-
-        print( f"Next in queue: {packet}" )
  
         if packet.get_mark() == Marks.TO_SERVER or packet.get_mark() == Marks.TO_CLIENT:
+            print( f"Next in queue: {packet}    ", end="\r" )
             self.wrap_icmp_and_send( packet )
             return
 

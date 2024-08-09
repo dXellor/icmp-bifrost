@@ -3,6 +3,15 @@ from core import TunnelDriver
 from utils.enums import ExitCodes, Modes
 from utils.validators import validate_arguments
 
+def display_title():
+    title = r"""
+_ ____ _   _ ___     ___  _ ____ ____ ____ ____ ___ 
+| |    |\_/| |__] __ |__] | |___ |__/ |  | [__   |  
+| |___ |   | |       |__] | |    |  \ |__| ___]  |                          
+                                                by dXellor
+    """
+    print(title)
+
 def main():
     args = get_args()
     if not validate_arguments( args ):
@@ -13,4 +22,5 @@ def main():
     tunnel.run()
 
 if __name__ == '__main__':
+    display_title()
     main()
