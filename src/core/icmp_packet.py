@@ -11,20 +11,28 @@ class ICMPPacket():
         self.seq = 0
         self.payload = bytes()
 
-    def __str__(self):
-        pass
-
-    def __calculate_checksum(self):
-        pass
-
-    def get_raw(self) -> bytes:
-        self.seq = len( self.payload )
+    def get_raw(self, calculate_checksum = True) -> bytes:
+        if calculate_checksum:
+            self.checksum = self.__calculate_checksum()
         return struct.pack(
-            '!bbhhh',
+            '!BBHHH',
             self.type,
             self.code,
             self.checksum,
             self.id,
             self.seq,
         ) + self.payload
+
+    def __calculate_checksum(self):
+        self.checksum = 0
+        packet = self.get_raw( False )
+
+        checksum_result = 0
+        for i in range( 0, len( packet ), 2 ):
+            checksum_result += ( packet[i] << 8 ) + ( struct.unpack( 'B', packet[i + 1:i + 2] )[0] if len( packet[i + 1:i + 2] ) else 0 )
+
+        checksum_result = ( checksum_result >> 16 ) + ( checksum_result & 0xFFFF )
+        checksum_result += ( checksum_result >> 16 )
+        checksum_result = ~checksum_result & 0xFFFF
+        return checksum_result
         

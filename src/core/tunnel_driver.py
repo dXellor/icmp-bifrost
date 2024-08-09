@@ -53,7 +53,7 @@ class TunnelDriver:
 
     def handle_queue(self, packet: Packet) -> None:
 
-        print( f"packet: {packet}" )
+        print( f"Next in queue: {packet}" )
  
         if packet.get_mark() == Marks.TO_SERVER or packet.get_mark() == Marks.TO_CLIENT:
             self.wrap_icmp_and_send( packet )
@@ -82,5 +82,5 @@ class TunnelDriver:
         if packet.get_mark() == Marks.FROM_CLIENT:
             secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
         
-        packet.set_payload( secret_payload )
+        packet.set_payload( bytes( secret_payload ) )
         packet.repeat()
