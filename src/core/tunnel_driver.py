@@ -5,7 +5,7 @@ import sys
 
 from .icmp_packet import ICMPPacket
 from utils.enums import Modes, Marks, ExitCodes
-from utils.network import convert_ip_address_to_bytes
+from utils.network import convert_ip_address_to_bytes, get_iptables_script_path
 
 class TunnelDriver:
 
@@ -26,9 +26,9 @@ class TunnelDriver:
 
     def setup_iptables_rules(self) -> None:
         if self.mode == Modes.CLIENT:
-            script_exit_code = subprocess.call( ['bash', './src/scripts/setup_iptables_client.sh', self.source, self.destination] )
+            script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_client.sh'), self.source, self.destination] )
         else:
-            script_exit_code = subprocess.call( ['bash', './src/scripts/setup_iptables_server.sh', self.destination] )
+            script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_server.sh'), self.destination] )
 
         if script_exit_code != 0:
             print( "Unable to setup iptable rules" )
@@ -36,7 +36,7 @@ class TunnelDriver:
             exit( ExitCodes.IPTABLES_SETUP_ERROR )
 
     def clear_iptables_rules(self) -> None:
-        subprocess.call( ['bash', './src/scripts/clear_iptables.sh'] )
+        subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh')] )
 
     def run(self):
         self.setup_iptables_rules()
