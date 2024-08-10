@@ -36,7 +36,7 @@ class TunnelDriver:
             exit( ExitCodes.IPTABLES_SETUP_ERROR )
 
     def clear_iptables_rules(self) -> None:
-        subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh')] )
+        subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh'), self.source, self.destination] )
 
     def run(self):
         self.setup_iptables_rules()
