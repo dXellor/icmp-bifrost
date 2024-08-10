@@ -22,7 +22,7 @@ This software is part of my Bachelor's Thesis.
 
 ## How to run?
 
-0. (Optional) Create python virtual evnironment with command `python -m venv env_name` or the tool of your choice. Activate the environment.
+0. (Optional) Create python virtual environment with command `python -m venv env_name` or the tool of your choice. Activate the environment.
 
 1. Install requirements with command `pip install -r requirements.txt`. If you encounter problems with the NetfilterQueue package check installation steps on its [README](https://github.com/oremanj/python-netfilterqueue)
 
