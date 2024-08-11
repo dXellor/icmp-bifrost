@@ -5,23 +5,25 @@ import sys
 
 from .icmp_packet import ICMPPacket
 from utils.enums import Modes, Marks, ExitCodes
-from utils.network import convert_ip_address_to_bytes, get_iptables_script_path
+from utils.network import convert_ip_address_to_bytes, convert_bytes_to_ip_address, get_iptables_script_path
 
 class TunnelDriver:
 
     def __init__(self, destination: str, mode: Modes) -> None:
         self.mode = mode
         self.icmp_socket = None
+        self.raw_socket = None
         self.destination = destination
         self.source = socket.gethostbyname( socket.gethostname() )
         
-        self.open_icmp_socket()
+        self.open_icmp_sockets()
 
-    def open_icmp_socket(self) -> None:
+    def open_icmp_sockets(self) -> None:
         try:
-            self.icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            self.icmp_socket = socket.socket( socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP )
+            self.raw_socket = socket.socket( socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW )
         except socket.error as e:
-            print(f"Error while initializing ICMP socket: {e}")
+            print(f"Error while initializing sockets: {e}")
             sys.exit(ExitCodes.CANT_OPEN_SOCKET)
 
     def setup_iptables_rules(self) -> None:
@@ -84,6 +86,10 @@ class TunnelDriver:
 
         if packet.get_mark() == Marks.FROM_CLIENT:
             secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
-        
-        packet.set_payload( bytes( secret_payload ) )
-        packet.repeat()
+            packet_destination = convert_bytes_to_ip_address( secret_payload[16:20] )
+        else:
+            packet_destination = self.destination
+
+        # packet.set_payload( bytes( secret_payload ) )
+        self.raw_socket.sendto( bytes(secret_payload), ( packet_destination, 0 ) )
+        packet.drop()
