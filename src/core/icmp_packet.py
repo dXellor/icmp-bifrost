@@ -2,9 +2,9 @@ import struct
 
 class ICMPPacket():
 
-    def __init__(self, destination_address: str):
+    def __init__(self, destination_address: str, is_echo_reply: bool):
         self.destination_address = destination_address
-        self.type = 8
+        self.type = 0 if is_echo_reply else 8
         self.code = 0
         self.checksum = 0
         self.id = 0

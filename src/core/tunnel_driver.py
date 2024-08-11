@@ -28,7 +28,7 @@ class TunnelDriver:
         if self.mode == Modes.CLIENT:
             script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_client.sh'), self.source, self.destination] )
         else:
-            script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_server.sh'), self.destination] )
+            script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_server.sh'), self.destination, self.source] )
 
         if script_exit_code != 0:
             print( "Unable to setup iptable rules" )
@@ -36,7 +36,10 @@ class TunnelDriver:
             exit( ExitCodes.IPTABLES_SETUP_ERROR )
 
     def clear_iptables_rules(self) -> None:
-        subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh'), self.source, self.destination] )
+        if self.mode == Modes.CLIENT:
+            subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh'), self.source, self.destination] )
+        else:
+            subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh'), self.destination, self.source] )
 
     def run(self):
         self.setup_iptables_rules()
@@ -65,18 +68,19 @@ class TunnelDriver:
         packet.accept()
 
     def wrap_icmp_and_send(self, packet: Packet) -> None:
-        icmp_packet = ICMPPacket( self.destination )
-        icmp_packet.payload = packet.get_payload()
+        icmp_packet = ICMPPacket( self.destination, packet.get_mark() == Marks.TO_CLIENT )
+        secret_payload = bytearray( packet.get_payload() )
 
         if packet.get_mark() == Marks.TO_CLIENT:
-            icmp_packet.payload[16:20] = convert_ip_address_to_bytes( self.destination )
+            secret_payload[16:20] = convert_ip_address_to_bytes( self.destination )
 
+        icmp_packet.payload = secret_payload
         self.icmp_socket.sendto( icmp_packet.get_raw(), ( self.destination, 1001 ))
         packet.drop()
 
     def unwrap_icmp_and_recieve(self, packet: Packet) -> None:
         raw_icmp = packet.get_payload()
-        secret_payload = bytearray( raw_icmp[8:] )
+        secret_payload = bytearray( raw_icmp[28:] )
 
         if packet.get_mark() == Marks.FROM_CLIENT:
             secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
