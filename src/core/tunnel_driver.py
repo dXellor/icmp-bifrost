@@ -82,7 +82,7 @@ class TunnelDriver:
 
     def unwrap_icmp_and_recieve(self, packet: Packet) -> None:
         raw_icmp = packet.get_payload()
-        ip_header_len = ( packet[0] & 0xF )
+        ip_header_len = ( raw_icmp[0] & 0xF )
         ip_and_icmp_header_len = ip_header_len + 8
         secret_payload = bytearray( raw_icmp[ip_and_icmp_header_len + 8:] )
 
