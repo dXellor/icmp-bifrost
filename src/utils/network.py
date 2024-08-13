@@ -24,12 +24,7 @@ def calculate_tcp_header_checksum(packet: bytearray) -> bytes:
     tcp_packet = packet[ip_header_len : ]
     tcp_packet[16:18] = 0x0000.to_bytes()
 
-    checksum_packet = bytearray()
-    checksum_packet.append( packet[12:16] )
-    checksum_packet.append( packet[16:20] )
-    checksum_packet.append( 0x00.to_bytes() )
-    checksum_packet.append( ( packet[8] & 0xF ).to_bytes() )
-    checksum_packet.append( tcp_packet )
+    checksum_packet = bytearray( bytes( packet[12:16] ) + bytes( packet[16:20] ) + 0x00.to_bytes() + ( packet[8] & 0xFF ).to_bytes() +  bytes( tcp_packet ))
     return calculate_checksum( checksum_packet )
 
 def calculate_checksum(checksum_packet: bytearray) -> bytes:

@@ -59,7 +59,6 @@ class TunnelDriver:
     def handle_queue(self, packet: Packet) -> None:
  
         if packet.get_mark() == Marks.TO_SERVER or packet.get_mark() == Marks.TO_CLIENT:
-            print( f"Next in queue: {packet}    ", end="\r" )
             self.wrap_icmp_and_send( packet )
             return
 
@@ -71,10 +70,13 @@ class TunnelDriver:
 
     def wrap_icmp_and_send(self, packet: Packet) -> None:
         icmp_packet = ICMPPacket( self.destination, packet.get_mark() == Marks.TO_CLIENT )
+        ip_header_len = ( packet.get_payload()[0] & 0xF )
         secret_payload = bytearray( packet.get_payload() )
 
         if packet.get_mark() == Marks.TO_CLIENT:
             secret_payload[16:20] = convert_ip_address_to_bytes( self.destination )
+            secret_payload[10:12] = calculate_ip_header_checksum( secret_payload )
+            secret_payload[ip_header_len + 16: ip_header_len + 18] = calculate_tcp_header_checksum( secret_payload )
 
         icmp_packet.payload = secret_payload
         self.icmp_socket.sendto( icmp_packet.get_raw(), ( self.destination, 1001 ))
@@ -90,7 +92,6 @@ class TunnelDriver:
             secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
             secret_payload[10:12] = calculate_ip_header_checksum( secret_payload )
             secret_payload[ip_header_len + 16: ip_header_len + 18] = calculate_tcp_header_checksum( secret_payload )
-
             packet_destination = convert_bytes_to_ip_address( secret_payload[16:20] )
         else:
             packet_destination = self.source

@@ -23,5 +23,5 @@ sudo iptables -t mangle -D INPUT -s $SERVER_IP -p icmp -j NFQUEUE --queue-num 1 
 sudo iptables -t mangle -D PREROUTING -s $CLIENT_IP -p icmp -j MARK --set-mark $MARK_FROM_CLIENT > /dev/null 2>&1;
 sudo iptables -t mangle -D INPUT -s $CLIENT_IP -p icmp -j NFQUEUE --queue-num 1 > /dev/null 2>&1;
 
-sudo iptables -t mangle -D PREROUTING ! -s $CLIENT_IP -d $SERVER_IP -j MARK --set-mark $MARK_TO_CLIENT > /dev/null 2>&1;
+sudo iptables -t mangle -D PREROUTING ! -s $CLIENT_IP -d $SERVER_IP -p tcp -j MARK --set-mark $MARK_TO_CLIENT > /dev/null 2>&1;
 sudo iptables -t mangle -D INPUT ! -s $CLIENT_IP -d $SERVER_IP -j NFQUEUE --queue-num 1 > /dev/null 2>&1;

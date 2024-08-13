@@ -13,5 +13,5 @@ SERVER_IP=$2
 sudo iptables -t mangle -I PREROUTING -s $CLIENT_IP -p icmp -j MARK --set-mark $MARK_FROM_CLIENT;
 sudo iptables -t mangle -I INPUT -s $CLIENT_IP -p icmp -j NFQUEUE --queue-num 1;
 
-sudo iptables -t mangle -I PREROUTING ! -s $CLIENT_IP -d $SERVER_IP -j MARK --set-mark $MARK_TO_CLIENT;
+sudo iptables -t mangle -I PREROUTING ! -s $CLIENT_IP -d $SERVER_IP -p tcp -j MARK --set-mark $MARK_TO_CLIENT;
 sudo iptables -t mangle -I INPUT ! -s $CLIENT_IP -d $SERVER_IP -j NFQUEUE --queue-num 1;
