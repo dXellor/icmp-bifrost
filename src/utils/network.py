@@ -42,4 +42,4 @@ def calculate_checksum(checksum_packet: bytearray) -> bytes:
     checksum_result = ( checksum_result >> 16 ) + ( checksum_result & 0xFFFF )
     checksum_result += ( checksum_result >> 16 )
     checksum_result = ~checksum_result & 0xFFFF
-    return checksum_result.to_bytes()
+    return checksum_result.to_bytes(2)
