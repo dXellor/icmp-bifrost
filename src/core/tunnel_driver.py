@@ -5,7 +5,7 @@ import sys
 
 from .icmp_packet import ICMPPacket
 from utils.enums import Modes, Marks, ExitCodes
-from utils.network import convert_ip_address_to_bytes, convert_bytes_to_ip_address, get_iptables_script_path
+from utils.network import *
 
 class TunnelDriver:
 
@@ -82,13 +82,18 @@ class TunnelDriver:
 
     def unwrap_icmp_and_recieve(self, packet: Packet) -> None:
         raw_icmp = packet.get_payload()
-        secret_payload = bytearray( raw_icmp[28:] )
+        ip_header_len = ( packet[0] & 0xF )
+        ip_and_icmp_header_len = ip_header_len + 8
+        secret_payload = bytearray( raw_icmp[ip_and_icmp_header_len + 8:] )
 
         if packet.get_mark() == Marks.FROM_CLIENT:
             secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
+            secret_payload[10:12] = calculate_ip_header_checksum( secret_payload )
+            secret_payload[ip_header_len + 16: ip_header_len + 18] = calculate_tcp_header_checksum( secret_payload )
+
             packet_destination = convert_bytes_to_ip_address( secret_payload[16:20] )
         else:
-            packet_destination = self.destination
+            packet_destination = self.source
 
         # packet.set_payload( bytes( secret_payload ) )
         self.raw_socket.sendto( bytes(secret_payload), ( packet_destination, 0 ) )
