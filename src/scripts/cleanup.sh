@@ -13,7 +13,7 @@ CLIENT_IP=$1
 SERVER_IP=$2
 NET_INTERFACE=$3
 
-catch_error "ip tuntap delete tun0b mode tun";
+ip tuntap delete tun0b mode tun;
 
 catch_error "iptables -t mangle -D INPUT -s $SERVER_IP -p icmp -j NFQUEUE --queue-num 1";
 catch_error "iptables -t mangle -D INPUT -s $CLIENT_IP -p icmp -j NFQUEUE --queue-num 1";

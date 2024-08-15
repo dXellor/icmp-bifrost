@@ -18,7 +18,7 @@ def main():
         exit( ExitCodes.INVALID_ARGUMENTS ) 
 
     tunnel_mode = Modes.CLIENT if args.client else Modes.SERVER
-    tunnel = TunnelDriver( args.destination, tunnel_mode ) 
+    tunnel = TunnelDriver( args.destination, tunnel_mode, args.interface ) 
     tunnel.run()
 
 if __name__ == '__main__':

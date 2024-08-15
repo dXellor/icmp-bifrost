@@ -2,100 +2,109 @@ from netfilterqueue import NetfilterQueue, Packet
 import socket
 import subprocess
 import sys
+from threading import Event, Thread
+from time import sleep
+from tuntap import TunTap
 
 from .icmp_packet import ICMPPacket
-from utils.enums import Modes, Marks, ExitCodes
-from utils.network import *
+from utils.enums import ExitCodes, Modes
+from utils.network import get_script_path
 
 class TunnelDriver:
 
-    def __init__(self, destination: str, mode: Modes) -> None:
+    def __init__(self, destination: str, mode: Modes, net_interface: str = None) -> None:
         self.mode = mode
-        self.icmp_socket = None
-        self.raw_socket = None
         self.destination = destination
-        self.source = socket.gethostbyname( socket.gethostname() )
+        self.tun = None
+        self.net_interface = net_interface
+        self.icmp_socket = None
         
-        self.open_icmp_sockets()
+        if mode == Modes.SERVER and not self.net_interface:
+            print( "Server mode selected without supplyed net interface" )
+            exit( ExitCodes.NET_INTERFACE_MISSING )
 
-    def open_icmp_sockets(self) -> None:
+        self.run_setup_script()
+        self.open_tun_interface()
+        self.open_icmp_socket()
+
+    def open_tun_interface(self) -> None:
+        try:
+            self.tun = TunTap( nic_type='Tun', nic_name='tun0b' )
+        except:
+            print(f"Error while initializing tun interface")
+            sys.exit(ExitCodes.CANT_OPEN_TUN)
+
+    def open_icmp_socket(self) -> None:
         try:
             self.icmp_socket = socket.socket( socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP )
-            self.raw_socket = socket.socket( socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW )
         except socket.error as e:
-            print(f"Error while initializing sockets: {e}")
+            print(f"Error while initializing socket: {e}")
             sys.exit(ExitCodes.CANT_OPEN_SOCKET)
 
-    def setup_iptables_rules(self) -> None:
+    def run_setup_script(self) -> None:
         if self.mode == Modes.CLIENT:
-            script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_client.sh'), self.source, self.destination] )
+            script_exit_code = subprocess.call( ['bash', get_script_path('setup_client.sh'), self.destination] )
         else:
-            script_exit_code = subprocess.call( ['bash', get_iptables_script_path('setup_iptables_server.sh'), self.destination, self.source] )
+            script_exit_code = subprocess.call( ['bash', get_script_path('setup_server.sh'), self.destination, self.net_interface] )
 
         if script_exit_code != 0:
-            print( "Unable to setup iptable rules" )
-            self.clear_iptables_rules()
-            exit( ExitCodes.IPTABLES_SETUP_ERROR )
+            print( "Erorr when running setup script" )
+            self.run_cleanup_script()
+            exit( ExitCodes.SETUP_SCRIPT_ERROR )
 
-    def clear_iptables_rules(self) -> None:
+    def run_cleanup_script(self) -> None:
         if self.mode == Modes.CLIENT:
-            subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh'), self.source, self.destination] )
+            subprocess.call( ['bash', get_script_path('cleanup.sh'), "0", self.destination, "0"] )
         else:
-            subprocess.call( ['bash', get_iptables_script_path('clear_iptables.sh'), self.destination, self.source] )
+            subprocess.call( ['bash', get_script_path('cleanup.sh'), self.destination, "0", self.net_interface] )
 
-    def run(self):
-        self.setup_iptables_rules()
+    def wrap_into_icmp(self, stop_event: Event) -> None:
+        while not stop_event.is_set():
+            buffer = self.tun.read()
+            if buffer:
+                icmp_packet = ICMPPacket( self.destination, self.mode == Modes.SERVER )
+                icmp_packet.payload = buffer
+                self.icmp_socket.sendto( icmp_packet.get_raw(), ( self.destination, 1001 ) )
 
+    def unwrap_from_icmp(self, stop_event: Event) -> None:
         nfqueue = NetfilterQueue()
-        nfqueue.bind(1, self.handle_queue)
+        stoppable_handle = lambda packet: self.handle_queue( packet, stop_event )
+        nfqueue.bind(1, stoppable_handle)
         try:
             nfqueue.run()
+        except Exception:
+            print("")
+        nfqueue.unbind()    
+
+    def handle_queue(self, packet: Packet, stop_event: Event) -> None: 
+        if stop_event.is_set():
+            raise Exception
+        
+        raw_ip_icmp = packet.get_payload()
+        complete_header_len = ( raw_ip_icmp[0] & 0xF ) * 4 + 8
+        secret_payload = raw_ip_icmp[complete_header_len:]
+
+        self.tun.write(secret_payload)
+        packet.drop()
+
+    def run(self) -> None:
+        stop_event = Event()
+        wrap_into_icmp_worker = Thread( target=self.wrap_into_icmp, args=[stop_event], daemon=True )
+        unwrap_from_icmp_worker = Thread( target=self.unwrap_from_icmp, args=[stop_event], daemon=True )
+
+        wrap_into_icmp_worker.start()
+        unwrap_from_icmp_worker.start()
+
+        try:
+            print("Tunnel is running")
+            print("Input keyboard interupt to close it")
+            while True:
+                print("", end="\r")
         except KeyboardInterrupt:
-            print('')
-
-        self.clear_iptables_rules()
-        nfqueue.unbind()
-
-    def handle_queue(self, packet: Packet) -> None:
- 
-        if packet.get_mark() == Marks.TO_SERVER or packet.get_mark() == Marks.TO_CLIENT:
-            self.wrap_icmp_and_send( packet )
-            return
-
-        if packet.get_mark() == Marks.FROM_CLIENT or packet.get_mark() == Marks.FROM_SERVER:
-            self.unwrap_icmp_and_recieve( packet )
-            return
-
-        packet.accept()
-
-    def wrap_icmp_and_send(self, packet: Packet) -> None:
-        icmp_packet = ICMPPacket( self.destination, packet.get_mark() == Marks.TO_CLIENT )
-        ip_header_len = ( packet.get_payload()[0] & 0xF )
-        secret_payload = bytearray( packet.get_payload() )
-
-        if packet.get_mark() == Marks.TO_CLIENT:
-            secret_payload[16:20] = convert_ip_address_to_bytes( self.destination )
-            secret_payload[10:12] = calculate_ip_header_checksum( secret_payload )
-            secret_payload[ip_header_len + 16: ip_header_len + 18] = calculate_tcp_header_checksum( secret_payload )
-
-        icmp_packet.payload = secret_payload
-        self.icmp_socket.sendto( icmp_packet.get_raw(), ( self.destination, 1001 ))
-        packet.drop()
-
-    def unwrap_icmp_and_recieve(self, packet: Packet) -> None:
-        raw_icmp = packet.get_payload()
-        ip_header_len = ( raw_icmp[0] & 0xF )
-        ip_and_icmp_header_len = ip_header_len + 8
-        secret_payload = bytearray( raw_icmp[ip_and_icmp_header_len + 8:] )
-
-        if packet.get_mark() == Marks.FROM_CLIENT:
-            secret_payload[12:16] = convert_ip_address_to_bytes( self.source )
-            secret_payload[10:12] = calculate_ip_header_checksum( secret_payload )
-            secret_payload[ip_header_len + 16: ip_header_len + 18] = calculate_tcp_header_checksum( secret_payload )
-            packet_destination = convert_bytes_to_ip_address( secret_payload[16:20] )
-        else:
-            packet_destination = self.source
-
-        # packet.set_payload( bytes( secret_payload ) )
-        self.raw_socket.sendto( bytes(secret_payload), ( packet_destination, 0 ) )
-        packet.drop()
+            print("Closing the tunnel...")
+            print("Wait until the queue is empty")
+        
+        stop_event.set()
+        sleep(10)
+        self.tun.close()
+        self.run_cleanup_script()
