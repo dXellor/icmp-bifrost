@@ -16,7 +16,7 @@ fi
 CLIENT_IP=$1
 NET_INTERFACE=$2
 
-exit_if_error "ip tuntap add name tungame mode tun";
+exit_if_error "ip tuntap add name tun0b mode tun";
 exit_if_error "ip link set tun0b up";
 exit_if_error "ip addr add 10.0.0.3/24 dev tun0b";
 
