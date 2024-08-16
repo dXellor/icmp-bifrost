@@ -20,5 +20,7 @@ exit_if_error "ip tuntap add name tun0b mode tun";
 exit_if_error "ip link set tun0b up";
 exit_if_error "ip addr add 10.0.0.3/24 dev tun0b";
 
+exit_if_error "iptables -A FORWARD -s 10.0.0.0/24 -j ACCEPT"
+exit_if_error "iptables -A FORWARD -d 10.0.0.0/24 -j ACCEPT"
 exit_if_error "iptables -t mangle -A INPUT -s $CLIENT_IP -p icmp -j NFQUEUE --queue-num 1";
-exit_if_error "iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE";
+exit_if_error "iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o $NET_INTERFACE -j MASQUERADE";

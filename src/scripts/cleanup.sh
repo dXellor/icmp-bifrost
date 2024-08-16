@@ -15,6 +15,8 @@ NET_INTERFACE=$3
 
 ip tuntap delete tun0b mode tun;
 
+catch_error "iptables -D FORWARD -s 10.0.0.0/24 -j ACCEPT"
+catch_error "iptables -D FORWARD -d 10.0.0.0/24 -j ACCEPT"
 catch_error "iptables -t mangle -D INPUT -s $SERVER_IP -p icmp -j NFQUEUE --queue-num 1";
 catch_error "iptables -t mangle -D INPUT -s $CLIENT_IP -p icmp -j NFQUEUE --queue-num 1";
-catch_error "iptables -t nat -D POSTROUTING -o $NET_INTERFACE -j MASQUERADE";
+catch_error "iptables -t nat -D POSTROUTING -s 10.0.0.0/24 -o $NET_INTERFACE -j MASQUERADE";
