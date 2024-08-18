@@ -12,16 +12,11 @@ from utils.network import get_script_path
 
 class TunnelDriver:
 
-    def __init__(self, destination: str, mode: Modes, net_interface: str = None) -> None:
+    def __init__(self, destination: str, mode: Modes) -> None:
         self.mode = mode
         self.destination = destination
         self.tun = None
-        self.net_interface = net_interface
-        self.icmp_socket = None
-        
-        if mode == Modes.SERVER and not self.net_interface:
-            print( "Server mode selected without supplyed net interface" )
-            exit( ExitCodes.NET_INTERFACE_MISSING )
+        self.icmp_socket = None        
 
         self.run_setup_script()
         self.open_tun_interface()
@@ -45,7 +40,7 @@ class TunnelDriver:
         if self.mode == Modes.CLIENT:
             script_exit_code = subprocess.call( ['bash', get_script_path('setup_client.sh'), self.destination] )
         else:
-            script_exit_code = subprocess.call( ['bash', get_script_path('setup_server.sh'), self.destination, self.net_interface] )
+            script_exit_code = subprocess.call( ['bash', get_script_path('setup_server.sh'), self.destination] )
 
         if script_exit_code != 0:
             print( "Erorr when running setup script" )
@@ -54,9 +49,9 @@ class TunnelDriver:
 
     def run_cleanup_script(self) -> None:
         if self.mode == Modes.CLIENT:
-            subprocess.call( ['bash', get_script_path('cleanup.sh'), "0", self.destination, "0"] )
+            subprocess.call( ['bash', get_script_path('cleanup.sh'), "0", self.destination] )
         else:
-            subprocess.call( ['bash', get_script_path('cleanup.sh'), self.destination, "0", self.net_interface] )
+            subprocess.call( ['bash', get_script_path('cleanup.sh'), self.destination, "0"] )
 
     def wrap_into_icmp(self, stop_event: Event) -> None:
         while not stop_event.is_set():

@@ -8,17 +8,16 @@ function exit_if_error {
     fi
 }
 
-if [ $# -ne 2 ]; then
-    echo "No arguments provided: CLIENT_IP, NET_INTERFACE";
+if [ $# -ne 1 ]; then
+    echo "No arguments provided: CLIENT_IP";
     exit -1;
 fi
 
 CLIENT_IP=$1
-NET_INTERFACE=$2
 
 exit_if_error "ip tuntap add name tun0b mode tun";
 exit_if_error "ip link set tun0b up";
 exit_if_error "ip addr add 10.0.0.3/24 dev tun0b";
 
 exit_if_error "iptables -t mangle -A INPUT -s $CLIENT_IP -p icmp -j NFQUEUE --queue-num 1";
-exit_if_error "iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE";
+exit_if_error "iptables -t nat -A POSTROUTING -j MASQUERADE";

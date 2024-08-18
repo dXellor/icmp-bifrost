@@ -14,10 +14,6 @@ def validate_arguments(args: Namespace) -> bool:
         print( "Invalid destination address" )
         return False
     
-    if args.server and not args.interface:
-        print( "Default gateway interface is required in server mode" )
-        return False
-    
     return True
 
 def validate_ip(ip: str) -> bool:
