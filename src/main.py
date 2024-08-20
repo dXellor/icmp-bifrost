@@ -19,7 +19,7 @@ def main():
 
     tunnel_mode = Modes.CLIENT if args.client else Modes.SERVER
     tunnel = TunnelDriver( args.destination, tunnel_mode ) 
-    tunnel.run()
+    tunnel.run( args.time )
 
 if __name__ == '__main__':
     display_title()

@@ -14,6 +14,10 @@ def validate_arguments(args: Namespace) -> bool:
         print( "Invalid destination address" )
         return False
     
+    if args.time and args.time < 0:
+        print( "Invalid time set" )
+        return False
+
     return True
 
 def validate_ip(ip: str) -> bool:

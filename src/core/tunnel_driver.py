@@ -82,7 +82,7 @@ class TunnelDriver:
         self.tun.write(secret_payload)
         packet.drop()
 
-    def run(self) -> None:
+    def run(self, duration: int = None) -> None:
         stop_event = Event()
         wrap_into_icmp_worker = Thread( target=self.wrap_into_icmp, args=[stop_event], daemon=True )
         unwrap_from_icmp_worker = Thread( target=self.unwrap_from_icmp, args=[stop_event], daemon=True )
@@ -92,9 +92,15 @@ class TunnelDriver:
 
         try:
             print("Tunnel is running")
-            print("Input keyboard interupt to close it")
-            while True:
-                print("", end="\r")
+            
+            if duration:
+                print(f"Tunnel will close in {duration} seconds")
+                sleep( duration )
+            else:
+                print("Input keyboard interupt to close it")
+                while True:
+                    print("", end="\r")
+
         except KeyboardInterrupt:
             print("Closing the tunnel...")
             print("Wait until the queue is empty")
